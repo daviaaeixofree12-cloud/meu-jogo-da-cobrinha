@@ -23,6 +23,10 @@ let comida;
 let pontos;
 let jogoAtivo = false;
 let intervalo;
+let cobrinhaAnterior = [];
+let inicioAnimacao = 0;
+let quadroAnimacao;
+const duracaoMovimento = 150;
 
 function iniciarJogo() {
     clearInterval(intervalo);
@@ -32,6 +36,8 @@ function iniciarJogo() {
         { x: 180, y: 200 },
         { x: 160, y: 200 }
     ];
+    cobrinhaAnterior = cobrinha.map(parte => ({ ...parte }));
+inicioAnimacao = performance.now();
 
     direcao = "DIREITA";
     proximaDirecao = "DIREITA";
@@ -46,12 +52,11 @@ function iniciarJogo() {
     criarComida();
 
     jogoAtivo = true;
+animar();
 
-    musica.volume = 0.25;
-    musica.play();
-    tocarSom(somClique);
-
-    desenhar();
+musica.volume = 0.25;
+musica.play();
+tocarSom(somClique);
 
     intervalo = setInterval(atualizar, 150);
 }
@@ -63,9 +68,26 @@ function criarComida() {
     };
 }
 
+
 function desenhar() {
     ctx.fillStyle = "#222";
     ctx.fillRect(0, 0, 400, 400);
+
+    // Grade do tabuleiro
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i <= 400; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 400);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(400, i);
+        ctx.stroke();
+    }
 
     // Comida
     ctx.fillStyle = "red";
@@ -73,24 +95,49 @@ function desenhar() {
     ctx.arc(comida.x + 10, comida.y + 10, 9, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cobrinha
+    // Animação da cobrinha
+    const progresso = Math.min(
+        (performance.now() - inicioAnimacao) / duracaoMovimento,
+        1
+    );
+
     cobrinha.forEach((parte, index) => {
+        const anterior = cobrinhaAnterior[index] ||
+            cobrinhaAnterior[cobrinhaAnterior.length - 1] ||
+            parte;
+
+        const x = anterior.x + (parte.x - anterior.x) * progresso;
+        const y = anterior.y + (parte.y - anterior.y) * progresso;
+
         ctx.fillStyle = index === 0 ? "#55ff77" : "#32cc55";
 
         ctx.fillRect(
-            parte.x,
-            parte.y,
+            x,
+            y,
             tamanho - 2,
             tamanho - 2
         );
     });
 
-    desenharRostinho();
+    const cabecaAnterior = cobrinhaAnterior[0] || cobrinha[0];
+
+const xCabeca = cabecaAnterior.x +
+    (cobrinha[0].x - cabecaAnterior.x) * progresso;
+
+const yCabeca = cabecaAnterior.y +
+    (cobrinha[0].y - cabecaAnterior.y) * progresso;
+
+desenharRostinho(xCabeca, yCabeca);
 }
 
-function desenharRostinho() {
-    const x = cobrinha[0].x;
-    const y = cobrinha[0].y;
+function animar() {
+    if (!jogoAtivo) return;
+
+    desenhar();
+    quadroAnimacao = requestAnimationFrame(animar);
+}
+
+function desenharRostinho(x, y) {
 
     ctx.fillStyle = "black";
 
@@ -145,7 +192,7 @@ function atualizar() {
         finalizarJogo();
         return;
     }
-
+    cobrinhaAnterior = cobrinha.map(parte => ({ ...parte }));
     cobrinha.unshift(cabeca);
 
     if (cabeca.x === comida.x && cabeca.y === comida.y) {
@@ -157,9 +204,9 @@ function atualizar() {
     } else {
         cobrinha.pop();
     }
-
-    desenhar();
+    inicioAnimacao = performance.now();
 }
+
 
 function finalizarJogo() {
     jogoAtivo = false;
